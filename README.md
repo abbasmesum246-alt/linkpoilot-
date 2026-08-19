@@ -151,3 +151,45 @@ node test-new.mjs      # 25 v2 assertions (guest mode, opportunities, assistant,
 node test-visual.mjs   # regenerates shots/*.png
 node test-mobile.mjs   # responsive sidebar + theme
 ```
+
+## Deployment (cloud hosting)
+
+> ⚠️ **Vercel will crash with a 500 error** — its serverless functions run on a read-only
+> filesystem, so the app cannot create its SQLite database or run as a long-lived server.
+> Use Render or Railway instead.
+
+### Render (easiest — one click)
+
+1. Push this repo to GitHub.
+2. Go to **render.com → New → Blueprint** and select the repository — `render.yaml` is included,
+   so the web service, build command and a **persistent disk** (mounted at `/var/data`, used via
+   `DATA_DIR=/var/data`) are configured automatically.
+3. Open the app URL. Done — your data survives restarts and redeploys.
+
+Manual (if not using the blueprint): new **Web Service** → build `npm install && npm run build`,
+start `node server.js`, add env var `DATA_DIR=/var/data`, and attach a **disk** at `/var/data`.
+
+### Railway
+
+1. **railway.com → New Project → Deploy from GitHub repo** — `railway.json` handles the build/start.
+2. In the service: **Settings → Volumes → Add volume** (mount path `/data`), then add env var
+   `DATA_DIR=/data`.
+3. Generate a domain in the **Networking** tab.
+
+### Any VPS (DigitalOcean, Hetzner, AWS…)
+
+```bash
+git clone <your-repo-url> && cd <repo>
+npm install && npm run build
+npm start                # or: nohup npm start &
+# → http://your-server:3000 (reverse-proxy with nginx/caddy if you want port 80/443)
+```
+
+The database lives in `data/linkpilot.db` (override with the `DATA_DIR` env var).
+The demo workspace seeds itself on first boot.
+
+### What about Vercel?
+
+If you must stay on Vercel, the app would need its storage migrated from SQLite to
+Postgres/Neon (Vercel's file system is read-only). That's a data-layer migration — ask if you
+want it, but Render/Railway/VPS run LinkPilot as-is with zero changes.

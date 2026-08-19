@@ -1,0 +1,21 @@
+# LinkPilot — Render Blueprint (one-click deploy)
+# 1. Push this repo to GitHub
+# 2. render.com → New → Blueprint → pick this repository
+# 3. Render builds & starts the app with a persistent disk at /var/data
+services:
+  - type: web
+    name: linkpilot
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20.x
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: linkpilot-data
+      mountPath: /var/data
+      sizeGB: 1
