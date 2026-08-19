@@ -1,0 +1,22 @@
+{
+  "name": "linkpilot",
+  "version": "1.0.0",
+  "description": "LinkPilot — professional affiliate business automation suite",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.jsx --bundle --minify --jsx=automatic --loader:.js=jsx --outfile=public/app.js",
+    "start": "node server.js",
+    "setup": "npm install && npm run build"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.3.0",
+    "express": "^4.19.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.23.0",
+    "playwright-core": "^1.62.1"
+  }
+}
