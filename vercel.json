@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "functions": {
+    "api/app.js": { "maxDuration": 60 }
+  },
+  "rewrites": [
+    { "source": "/app.css", "destination": "/public/app.css" },
+    { "source": "/app.js", "destination": "/public/app.js" },
+    { "source": "/fonts/(.*)", "destination": "/public/fonts/$1" },
+    { "source": "/demo-visit.html", "destination": "/public/demo-visit.html" },
+    { "source": "/404.html", "destination": "/public/404.html" },
+    { "source": "/inactive.html", "destination": "/public/inactive.html" },
+    { "source": "/(.*)", "destination": "/api/app.js" }
+  ]
+}

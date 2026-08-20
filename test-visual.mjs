@@ -1,7 +1,7 @@
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 
-const BASE = 'http://localhost:3000';
+const BASE = process.env.BASE || 'http://localhost:3000';
 const OUT = '/home/user/affiliate-os/shots';
 fs.mkdirSync(OUT, { recursive: true });
 

@@ -1,6 +1,6 @@
 import { chromium } from 'playwright-core';
 
-const BASE = 'http://localhost:3000';
+const BASE = process.env.BASE || 'http://localhost:3000';
 const errors = [];
 const results = [];
 const ok = (name, cond) => { results.push(`${cond ? 'PASS' : 'FAIL'}  ${name}`); if (!cond) process.exitCode = 1; };

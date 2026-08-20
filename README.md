@@ -152,6 +152,98 @@ node test-visual.mjs   # regenerates shots/*.png
 node test-mobile.mjs   # responsive sidebar + theme
 ```
 
+## Deployment on Vercel (free tier, full functionality)
+
+> **Why the earlier 500 happened:** Vercel runs serverless functions on a read-only filesystem,
+> so the app can't keep a local SQLite file there. LinkPilot now ships with a storage adapter:
+> **local SQLite for development** and **Turso (cloud SQLite, free tier)** when
+> `TURSO_DATABASE_URL` is set. The SQL is identical on both, so every feature — tracking
+> redirects, webhooks, the AI copilot with live research, both account modes — works on Vercel.
+
+### Step 1 — Push this repo to GitHub (if not already done)
+
+```bash
+git remote add origin <your-repo-url> && git push -u origin main
+```
+
+### Step 2 — Create the Turso database (2 min)
+
+Easiest path — via the Vercel dashboard (no CLI needed):
+
+1. Open your project in Vercel → **Integrations** → search **Turso** → **Add**
+2. Sign in with GitHub → **Create database** → name it `linkpilot`, pick a region near you
+3. Vercel auto-injects `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` into your project
+
+Alternative — via the Turso CLI:
+
+```bash
+curl -sSfL https://get.tur.so/install.sh | bash
+turso auth signup          # or: turso auth login
+turso db create linkpilot
+turso db show linkpilot --url            # → TURSO_DATABASE_URL
+turso db tokens create linkpilot         # → TURSO_AUTH_TOKEN
+```
+
+### Step 3 — Deploy on Vercel (2 min)
+
+1. **vercel.com → Add New → Project →** import the repository
+2. Framework preset: **Other** (it's a plain Node app; `vercel.json` is included)
+3. Set the two environment variables:
+   - `TURSO_DATABASE_URL`  — e.g. `libsql://linkpilot-<you>.turso.io`
+   - `TURSO_AUTH_TOKEN`    — the token from step 2
+4. Click **Deploy** — Vercel runs `npm install && npm run build` automatically
+   (build command is set in `vercel.json`)
+
+That's it. The app self-seeds the demo workspace on first request, and all data
+(clicks, links, chat history, strategies…) lives in Turso and survives redeploys.
+Local development keeps using a plain SQLite file with zero configuration.
+
+### Architecture notes
+
+| Layer | Vercel | Local |
+|---|---|---|
+| Storage | Turso (libSQL over HTTP) | SQLite file in `data/` |
+| Server | `api/app.js` — the whole Express app as one serverless function | `node server.js` |
+| Static UI | `public/` via `vercel.json` rewrites | `express.static` |
+| Session cookies | httpOnly + Secure | httpOnly |
+
+- Function timeout is 60s (`vercel.json`) — enough for live web research in the copilot.
+- The redirect engine (`/r/:slug`) logs referrer, country (via `Accept-Language`) and device
+  from the proxied request headers, exactly like local mode.
+- If you'd rather host elsewhere, `render.yaml` (Render) and `railway.json` (Railway) are
+  still included; any VPS works with `npm install && npm run build && npm start`.
+
+## Project layout
+
+```
+server.js            Express app: REST API + tracking engine + assistant routes
+lib/db.js            SQLite schema & helpers
+lib/seed.js          92-day demo dataset (guest workspace)
+lib/market.js        12 affiliate types + 51 programs (knowledge base)
+lib/research.js      live web layer (search, HN, Wikipedia, RSS, caching)
+lib/assistant.js     AI engine: intents, strategies, comparisons, analysis, LLM passthrough
+src/main.jsx         boot, hash router, toasts, confirm dialogs
+src/layout.jsx       sidebar + topbar + demo banner
+src/ui.jsx           design-system primitives
+src/charts.jsx       hand-rolled SVG charts
+src/pages/*.jsx      dashboard, opportunities, assistant, links, campaigns, networks,
+                     payouts, strategies, integrations, settings, auth
+public/              static shell, demo-visit page, fonts, built app.js
+data/linkpilot.db    persistent SQLite database
+shots/               page screenshots from the QA run
+test-*.mjs           Playwright QA suites (50 assertions across 3 files)
+```
+
+## Running the QA suite (optional)
+
+```bash
+npm i -D playwright-core && npx playwright-core install chromium
+node test-e2e.mjs      # 25 core assertions
+node test-new.mjs      # 25 v2 assertions (guest mode, opportunities, assistant, strategies)
+node test-visual.mjs   # regenerates shots/*.png
+node test-mobile.mjs   # responsive sidebar + theme
+```
+
 ## Deployment (cloud hosting)
 
 > ⚠️ **Vercel will crash with a 500 error** — its serverless functions run on a read-only

@@ -12,6 +12,7 @@
     "setup": "npm install && npm run build"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.4",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.3.0",
     "esbuild": "^0.23.0",
