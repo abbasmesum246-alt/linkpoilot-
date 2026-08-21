@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import bcrypt from 'bcryptjs';
-import { q, initDb, now, daysAgo, uniqueSlug, randomToken, logActivity, useTurso } from './lib/db.js';
+import { q, initDb, now, daysAgo, uniqueSlug, randomToken, logActivity, storage } from './lib/db.js';
 import { seedDemoUser } from './lib/seed.js';
 import { seedMarket } from './lib/market.js';
 import { assistantReply } from './lib/assistant.js';
@@ -80,15 +80,72 @@ const DEMOVISIT_HTML = `<!doctype html>
 </body>
 </html>`;
 
+const SETUP_HTML = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Storage setup required — LinkPilot</title>
+  <style>
+    body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; background:#0a0d14; color:#e9edf6; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    .card { max-width:560px; padding:40px 32px; background:#121828; border:1px solid rgba(148,163,197,.15); border-radius:18px; }
+    h1 { font-size:20px; margin:0 0 6px; }
+    .badge { display:inline-block; background:rgba(245,158,11,.15); color:#f59e0b; font-size:11px; font-weight:700; letter-spacing:.1em; padding:3px 10px; border-radius:99px; margin-bottom:14px; }
+    p, li { color:#a6afc3; font-size:14px; line-height:1.7; }
+    ol { padding-left:20px; }
+    code { background:#1d253b; padding:2px 7px; border-radius:6px; color:#a5f3d0; font-size:13px; }
+    .note { margin-top:18px; padding:12px 14px; border-radius:10px; background:rgba(59,130,246,.1); border:1px solid rgba(59,130,246,.25); font-size:13px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">SETUP REQUIRED</span>
+    <h1>LinkPilot needs cloud storage on Vercel</h1>
+    <p>Vercel's filesystem is read-only, so LinkPilot uses <b>Turso</b> (free cloud SQLite) as its database.
+    It looks like the database isn't connected yet.</p>
+    <ol>
+      <li>Open your project in the <b>Vercel dashboard → Integrations → Turso → Add</b></li>
+      <li><b>Create database</b> (name it <code>linkpilot</code>) — Vercel injects the credentials automatically</li>
+      <li>Or add them manually in <b>Settings → Environment Variables</b>:
+        <ul>
+          <li><code>TURSO_DATABASE_URL</code> — e.g. <code>libsql://linkpilot-&lt;you&gt;.turso.io</code></li>
+          <li><code>TURSO_AUTH_TOKEN</code> — the database token</li>
+        </ul>
+      </li>
+      <li><b>Redeploy</b> and refresh this page.</li>
+    </ol>
+    <div class="note">Full instructions are in the project README → <b>Deployment on Vercel</b>.
+    This page is shown only because <code>TURSO_DATABASE_URL</code> is missing.</div>
+  </div>
+</body>
+</html>`;
 export function createApp() {
   const app = express();
 
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  // lazy boot: open storage + seed (first request on serverless pays the seed cost once)
-  const ready = initDb().then(() => seedDemoUser()).then(() => seedMarket());
+  // lazy boot: open storage + seed (first request on serverless pays the seed cost once).
+  // Concurrent cold starts (Vercel) are safe — both seeders tolerate races.
+  const ready = initDb()
+    .then(() => Promise.all([seedDemoUser(), seedMarket()]))
+    .catch((e) => console.error('[boot]', e.message));
+
   app.use(async (req, res, next) => {
+    // storage not configured (e.g. Vercel without Turso) → show a clear setup page, not a 500
+    if (storage.error) {
+      if (req.path === '/api/health') {
+        return res.status(503).json({
+          ok: false, service: 'linkpilot', setup_required: true,
+          hint: 'Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN (Turso) in your Vercel environment variables.',
+          error: storage.error,
+        });
+      }
+      if (!req.path.startsWith('/api')) {
+        res.status(503).setHeader('Content-Type', 'text/html');
+        return res.send(SETUP_HTML);
+      }
+      return res.status(503).json({ error: 'Storage unavailable. Set TURSO_DATABASE_URL / TURSO_AUTH_TOKEN (see README → Deployment on Vercel).' });
+    }
     try { await ready; next(); } catch (e) { next(e); }
   });
 
@@ -167,7 +224,7 @@ export function createApp() {
 
   // auth
   app.get('/api/health', wrap(async (req, res) => {
-    res.json({ ok: true, service: 'linkpilot', time: now(), uptime: Math.round(process.uptime()), storage: useTurso ? 'turso' : 'sqlite' });
+    res.json({ ok: true, service: 'linkpilot', time: now(), uptime: Math.round(process.uptime()), storage: storage.mode, storage_url: storage.url });
   }));
 
   app.post('/api/auth/guest', wrap(async (req, res) => {

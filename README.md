@@ -198,6 +198,24 @@ That's it. The app self-seeds the demo workspace on first request, and all data
 (clicks, links, chat history, strategies…) lives in Turso and survives redeploys.
 Local development keeps using a plain SQLite file with zero configuration.
 
+### Troubleshooting
+
+**"This serverless function has crashed" / 500 errors**
+- The single most common cause: the app is running on Vercel **without the Turso environment
+  variables**. The app now detects this and shows a clear **"Storage setup required"** page with
+  instructions instead of crashing. Add `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` and redeploy.
+- Check **Project → Functions → Logs** for the actual error and the health endpoint
+  (`your-app.vercel.app/api/health`) — it reports the storage mode.
+
+**Deployment fails at the build step**
+- LinkPilot has **no native modules** (the data layer is pure-JS libSQL), so Vercel's bundler
+  cannot fail on native compilation. If the build still fails, check the build log for
+  `npm install` errors — usually a network hiccup; retry the deploy.
+
+**First request is slow**
+- The very first request seeds the demo workspace (≈23k demo clicks) into Turso. Subsequent
+  requests are fast. If two cold starts race, both seeders detect the race and continue safely.
+
 ### Architecture notes
 
 | Layer | Vercel | Local |

@@ -1,7 +1,7 @@
 {
   "name": "linkpilot",
   "version": "2.0.0",
-  "description": "LinkPilot — professional affiliate business automation suite",
+  "description": "LinkPilot \u2014 professional affiliate business automation suite",
   "type": "module",
   "engines": {
     "node": ">=18"
@@ -14,7 +14,6 @@
   "dependencies": {
     "@libsql/client": "^0.17.4",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.3.0",
     "esbuild": "^0.23.0",
     "express": "^4.19.2",
     "react": "^18.3.1",
